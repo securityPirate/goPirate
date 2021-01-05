@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"time"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -29,13 +30,14 @@ func (p *Provider) ConnectAndLunch(name, access, secret, region string, counter 
 	p.name = name
 	p.sess = sess
 	fmt.Println("Session Created")
-	fmt.Println("Do you wanna to flush? press y")
+	fmt.Println("Do you wanna to Create new Fleet? press y")
 	var input string
 	fmt.Scan(&input)
 	if input == "y" {
 		p.CreateKey()
 		p.CreateLaunchTemplate()
 		p.CreateFleet(counter)
+		time.Sleep(3 * time.Minute)
 	}
 
 }

@@ -205,6 +205,7 @@ func NewNativeConfig(user, clientVersion string, auth *Auth, hostKeyCallback ssh
 	}, nil
 }
 
+
 func (client *NativeClient) dialSuccess() bool {
 	if _, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", client.Hostname, client.Port), &client.Config); err != nil {
 		log.Debugf("Error dialing TCP: %s", err)
@@ -213,7 +214,8 @@ func (client *NativeClient) dialSuccess() bool {
 	return true
 }
 
-func (client *NativeClient) session(command string) (*ssh.Session, error) {
+//Session ...
+func (client *NativeClient) Session(command string) (*ssh.Session, error) {
 	if err := mcnutils.WaitFor(client.dialSuccess); err != nil {
 		return nil, fmt.Errorf("Error attempting SSH client dial: %s", err)
 	}
@@ -228,7 +230,7 @@ func (client *NativeClient) session(command string) (*ssh.Session, error) {
 
 // Output returns the output of the command run on the remote host.
 func (client *NativeClient) Output(command string) (string, error) {
-	session, err := client.session(command)
+	session, err := client.Session(command)
 	if err != nil {
 		return "", err
 	}
@@ -241,7 +243,7 @@ func (client *NativeClient) Output(command string) (string, error) {
 
 // OutputWithPty returns the output of the command run on the remote host as well as a pty.
 func (client *NativeClient) OutputWithPty(command string) (string, error) {
-	session, err := client.session(command)
+	session, err := client.Session(command)
 	if err != nil {
 		return "", nil
 	}
@@ -274,7 +276,7 @@ func (client *NativeClient) OutputWithPty(command string) (string, error) {
 // Start starts the specified command without waiting for it to finish. You
 // have to call the Wait function for that.
 func (client *NativeClient) Start(command string) (io.ReadCloser, io.ReadCloser, error) {
-	session, err := client.session(command)
+	session, err := client.Session(command)
 	if err != nil {
 		return nil, nil, err
 	}

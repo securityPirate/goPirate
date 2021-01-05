@@ -22,7 +22,7 @@ func (p Provider) ListIPs(counter int64) []net.IP {
 	}
 	fmt.Println("the IPs has been fetched")
 	return ip
-	
+
 }
 
 //Instances all
