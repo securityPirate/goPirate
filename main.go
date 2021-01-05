@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"gonhunt.com/instances"
-	"gonhunt.com/providers"
+	"gopirate.com/instances"
+	"gopirate.com/providers"
 	"time"
 )
 
@@ -31,8 +31,9 @@ func main() {
 		for i := 0; i < *pc; i++ {
 			p.ConnectAndLunch(*pn, *pa, *ps, *pr, *ic)
 			fmt.Println("initializing ...")
-			time.Sleep(3 * time.Minute)
-
+			fmt.Println(time.Now())
+			//time.Sleep(3 * time.Minute)
+			fmt.Println(time.Now(), "you spend 3 minuties staring to the screen")
 			p.InstanceStaus()
 			machines.IP = p.ListIPs(*ic)
 		}
@@ -43,7 +44,7 @@ func main() {
 		if *rp == true {
 		}
 
-		fmt.Println("Do you wanna to flush? press")
+		fmt.Println("Do you wanna to flush? press y")
 		fmt.Scan(&input)
 		if input == "y" {
 			p.Flush()

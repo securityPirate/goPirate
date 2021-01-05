@@ -20,7 +20,9 @@ func (p Provider) ListIPs(counter int64) []net.IP {
 		x := net.IP(*resultAdd.NetworkInterfaces[i].Association.PublicIp)
 		ip = append(ip, x)
 	}
+	fmt.Println("the IPs has been fetched")
 	return ip
+	
 }
 
 //Instances all

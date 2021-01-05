@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-//Provider AWS 
+//Provider AWS
 type Provider struct {
 	name     string
 	sess     *session.Session
@@ -29,9 +29,15 @@ func (p *Provider) ConnectAndLunch(name, access, secret, region string, counter 
 	p.name = name
 	p.sess = sess
 	fmt.Println("Session Created")
-	p.CreateKey()
-	p.CreateLaunchTemplate()
-	p.CreateFleet(counter)
+	fmt.Println("Do you wanna to flush? press y")
+	var input string
+	fmt.Scan(&input)
+	if input == "y" {
+		p.CreateKey()
+		p.CreateLaunchTemplate()
+		p.CreateFleet(counter)
+	}
+
 }
 
 //Flush deleting everything
