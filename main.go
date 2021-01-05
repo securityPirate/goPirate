@@ -1,6 +1,7 @@
 package main
 
 import (
+	"gopirate.com/connector"
 	"flag"
 	"fmt"
 	"gopirate.com/instances"
@@ -11,7 +12,7 @@ import (
 func main() {
 	var input string
 	p := providers.Provider{}
-	machines := instances.Instance{}
+	machines := instances.Fleet{}
 
 	d := flag.Bool("d", false, "load the defualt configuration")                 //defualt conf
 	pn := flag.String("n", "AWS", "Default Cloud Provider")                      //provide name
@@ -38,7 +39,7 @@ func main() {
 			machines.IP = p.ListIPs(*ic)
 		}
 
-		instances.CreateTunnel(machines)
+		connector.CreateTunnel(machines)
 
 		//Randomly select the provider
 		if *rp == true {

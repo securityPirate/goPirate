@@ -1,138 +1,152 @@
 package connector
 
 import (
-	"fmt"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
-	"gopirate.com/instances"
 	"io"
-	"io/ioutil"
 	"net"
-	"os"
 )
 
-//Endpoint ...
-type Endpoint struct {
-	Host string
-	Port int
+type logger interface {
+	Printf(string, ...interface{})
 }
 
-func (endpoint *Endpoint) String() string {
-	return fmt.Sprintf("%s:%d", endpoint.Host, endpoint.Port)
+//SSHTunnel hold tunnel data
+type SSHTunnel struct {
+	Local    *Node
+	Server   *Node
+	Remote   *Node
+	Config   *ssh.ClientConfig
+	Log      logger
+	Conns    []net.Conn
+	SvrConns []*ssh.Client
+	isOpen   bool
+	close    chan interface{}
 }
 
-//SSHtunnel ...
-type SSHtunnel struct {
-	Local  *Endpoint
-	Server *Endpoint
-	Remote *Endpoint
-	Config *ssh.ClientConfig
+func (tunnel *SSHTunnel) logf(fmt string, args ...interface{}) {
+	if tunnel.Log != nil {
+		tunnel.Log.Printf(fmt, args...)
+	}
 }
 
-//Start ...
-func (tunnel *SSHtunnel) Start() error {
+func newConnectionWaiter(listener net.Listener, c chan net.Conn) {
+	conn, err := listener.Accept()
+	if err != nil {
+		return
+	}
+	c <- conn
+}
+
+//Start function to initiate the tunnel connection
+func (tunnel *SSHTunnel) Start() error {
 	listener, err := net.Listen("tcp", tunnel.Local.String())
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
+	tunnel.isOpen = true
+	tunnel.Local.Port = listener.Addr().(*net.TCPAddr).Port
 
 	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			return err
+		if !tunnel.isOpen {
+			break
 		}
-		go tunnel.forward(conn)
-	}
-}
 
-func (tunnel *SSHtunnel) forward(localConn net.Conn) {
-	serverConn, err := ssh.Dial("tcp", tunnel.Server.String(), tunnel.Config)
-	if err != nil {
-		fmt.Printf("Server dial error: %s\n", err)
-		return
-	}
+		c := make(chan net.Conn)
+		go newConnectionWaiter(listener, c)
+		tunnel.logf("listening for new connections...")
 
-	remoteConn, err := serverConn.Dial("tcp", tunnel.Remote.String())
-	if err != nil {
-		fmt.Printf("Remote dial error: %s\n", err)
-		return
-	}
-
-	copyConn := func(writer, reader net.Conn) {
-		defer writer.Close()
-		defer reader.Close()
-
-		_, err := io.Copy(writer, reader)
-		if err != nil {
-			fmt.Printf("io.Copy error: %s", err)
+		select {
+		case <-tunnel.close:
+			tunnel.logf("close signal received, closing...")
+			tunnel.isOpen = false
+		case conn := <-c:
+			tunnel.Conns = append(tunnel.Conns, conn)
+			tunnel.logf("accepted connection")
+			go tunnel.forward(conn)
 		}
 	}
-
-	go copyConn(localConn, remoteConn)
-	go copyConn(remoteConn, localConn)
-}
-
-//SSHAgent ...
-func SSHAgent() ssh.AuthMethod {
-
-	if sshAgent, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK")); err == nil {
-		return ssh.PublicKeysCallback(agent.NewClient(sshAgent).Signers)
+	var total int
+	total = len(tunnel.Conns)
+	for i, conn := range tunnel.Conns {
+		tunnel.logf("closing the netConn (%d of %d)", i+1, total)
+		err := conn.Close()
+		if err != nil {
+			tunnel.logf(err.Error())
+		}
 	}
+	total = len(tunnel.SvrConns)
+	for i, conn := range tunnel.SvrConns {
+		tunnel.logf("closing the serverConn (%d of %d)", i+1, total)
+		err := conn.Close()
+		if err != nil {
+			tunnel.logf(err.Error())
+		}
+	}
+	err = listener.Close()
+	if err != nil {
+		return err
+	}
+	tunnel.logf("tunnel closed")
 	return nil
 }
 
-//PublicKeyFile ...
-func PublicKeyFile(file string) ssh.AuthMethod {
-	buffer, err := ioutil.ReadFile(file)
+func (tunnel *SSHTunnel) forward(localConn net.Conn) {
+	serverConn, err := ssh.Dial("tcp", tunnel.Server.String(), tunnel.Config)
 	if err != nil {
-		return nil
+		tunnel.logf("server dial error: %s", err)
+		return
 	}
+	tunnel.logf("connected to %s (1 of 2)\n", tunnel.Server.String())
+	remoteConn, err := serverConn.Dial("tcp", tunnel.Remote.String())
+	if err != nil {
+		tunnel.logf("remote dial error: %s", err)
+		return
+	}
+	tunnel.Conns = append(tunnel.Conns, remoteConn)
+	tunnel.SvrConns = append(tunnel.SvrConns, serverConn)
+	tunnel.logf("connected to %s (2 of 2)\n", tunnel.Remote.String())
+	copyConn := func(writer, reader net.Conn) {
+		_, err := io.Copy(writer, reader)
+		if err != nil {
+			tunnel.logf("io.Copy error: %s", err)
+		}
+	}
+	go copyConn(localConn, remoteConn)
+	go copyConn(remoteConn, localConn)
 
-	key, err := ssh.ParsePrivateKey(buffer)
-	if err != nil {
-		return nil
-	}
-	return ssh.PublicKeys(key)
+	return
 }
 
-//CreateTunnel ...
-func CreateTunnel(remote Instance) {
-	//we need to manage multi tunnels concurunt connections
-	for _, v := range remote.IP {
-		fmt.Println("connecting to", string(v))
-		localEndpoint := &Endpoint{
-			Host: "localhost",
-			Port: 9966,
-		}
+//Close function to shutdown the tunnel
+func (tunnel *SSHTunnel) Close() {
+	tunnel.close <- struct{}{}
+	return
+}
 
-		serverEndpoint := &Endpoint{
-			Host: string(v),
-			Port: 22,
-		}
+// NewSSHTunnel creates a new single-use tunnel. Supplying "0" for localport will use a random port.
+func NewSSHTunnel(tunnel string, auth ssh.AuthMethod, destination string, localport string) *SSHTunnel {
 
-		remoteEndpoint := &Endpoint{
-			Host: "localhost",
-			Port: 6699,
-		}
+	localNode := NewNode("localhost:" + localport)
 
-		sshConfig := &ssh.ClientConfig{
-			User: "ec2-user",
-			Auth: []ssh.AuthMethod{
-				PublicKeyFile("/home/ahmed/.goPirate/gonhuntKey.pem")},
-			// Auth: []ssh.AuthMethod{
-			// 	SSHAgent(),
-			// },
-		}
-
-		tunnel := &SSHtunnel{
-			Config: sshConfig,
-			Local:  localEndpoint,
-			Server: serverEndpoint,
-			Remote: remoteEndpoint,
-		}
-
-		tunnel.Start()
+	server := NewNode(tunnel)
+	if server.Port == 0 {
+		server.Port = 22
 	}
 
+	sshTunnel := &SSHTunnel{
+		Config: &ssh.ClientConfig{
+			User: server.User,
+			Auth: []ssh.AuthMethod{auth},
+			HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+				// Always accept key.
+				return nil
+			},
+		},
+		Local:  localNode,
+		Server: server,
+		Remote: NewNode(destination),
+		close:  make(chan interface{}),
+	}
+
+	return sshTunnel
 }
