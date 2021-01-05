@@ -39,7 +39,6 @@ func main() {
 			machines.IP = p.ListIPs(*ic)
 		}
 
-		connector.CreateTunnel(machines)
 
 		//Randomly select the provider
 		if *rp == true {
