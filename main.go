@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"gonhunt.com/instances"
 	"gonhunt.com/providers"
 	"time"
 )
@@ -10,6 +11,7 @@ import (
 func main() {
 	var input string
 	p := providers.Provider{}
+	machines := instances.Instance{}
 
 	d := flag.Bool("d", false, "load the defualt configuration")                 //defualt conf
 	pn := flag.String("n", "AWS", "Default Cloud Provider")                      //provide name
@@ -29,11 +31,13 @@ func main() {
 		for i := 0; i < *pc; i++ {
 			p.ConnectAndLunch(*pn, *pa, *ps, *pr, *ic)
 			fmt.Println("initializing ...")
-			time.Sleep(30 * time.Second)
-			
+			time.Sleep(3 * time.Minute)
+
 			p.InstanceStaus()
-			p.ListIPs(*ic)
+			machines.IP = p.ListIPs(*ic)
 		}
+
+		instances.CreateTunnel(machines)
 
 		//Randomly select the provider
 		if *rp == true {

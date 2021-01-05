@@ -4,21 +4,23 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"net"
 )
 
 //ListIPs of aws instances
-func (p Provider) ListIPs(counter int64) {
+func (p Provider) ListIPs(counter int64) []net.IP {
+	var ip []net.IP
 	ec2svc := ec2.New(p.sess)
 	inputAdd := &ec2.DescribeNetworkInterfacesInput{}
 	resultAdd, err := ec2svc.DescribeNetworkInterfaces(inputAdd)
 	if err != nil {
 		fmt.Println("Error describe network", err)
-		return
 	}
 	for i := 0; i < int(counter); i++ {
-		fmt.Println(*resultAdd.NetworkInterfaces[i].Association.PublicIp)
+		x := net.IP(*resultAdd.NetworkInterfaces[i].Association.PublicIp)
+		ip = append(ip, x)
 	}
-
+	return ip
 }
 
 //Instances all
