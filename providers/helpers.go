@@ -25,6 +25,9 @@ func (p Provider) ListIPs(counter int64) []net.IP {
 
 }
 
+
+
+
 //Instances all
 func (p Provider) Instances() {
 	svc := ec2.New(p.sess)

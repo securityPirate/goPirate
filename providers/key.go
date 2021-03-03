@@ -5,7 +5,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"io/ioutil"
+	"gopirate.com/local"
+	"os"
 )
 
 //CreateKey on aws
@@ -33,14 +34,16 @@ func (p *Provider) CreateKey() error {
 	fmt.Println(result)
 
 	bytes := []byte(*p.key.KeyMaterial)
-	saveFileTo := "Get user home/.goPirate/" + *p.key.KeyName + ".pem"
-	fmt.Println("saving to file ...")
-	errFile := ioutil.WriteFile("/home/ahmed/.goPirate/"+*p.key.KeyName+".pem", bytes, 0600)
+	path, _ := os.UserHomeDir()
+	path += ".goPirate"
+	os.MkdirAll(path, 0755)
+	path = path + *p.key.KeyName + ".pem"
+	errFile := local.SaveFile(path, bytes, 0600)
 	if errFile != nil {
 		return errFile
 	}
 
-	fmt.Printf("Key saved to: %s", saveFileTo)
+	fmt.Printf("Key created and saved to: %s", path)
 	return nil
 }
 

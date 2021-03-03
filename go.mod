@@ -7,5 +7,6 @@ require (
 	github.com/docker/docker v20.10.2+incompatible
 	github.com/docker/machine v0.16.2
 	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635 // indirect
+	github.com/securityPirate/S4 v0.0.0-20200526125141-ca0c863d652a
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 )
